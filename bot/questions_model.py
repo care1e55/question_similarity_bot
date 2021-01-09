@@ -8,7 +8,12 @@ class Questions(Base):
     __table_args__ = {'schema': 'telegrambot'}
 
     question = Column(String, primary_key=True)
+    message_id = Column(String) 
     embedding = Column(String)
 
     def __repr__(self):
-        return f'user_id={self.question}, email={self.embedding}'
+        return f'''
+            question={self.question}, 
+            message_id={self.message_id},
+            embedding={self.embedding}
+            '''

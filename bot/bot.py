@@ -6,12 +6,14 @@ from telegram.ext import MessageHandler, Filters
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import logging
+from copy import deepcopy
 import os
 import sys
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO)
+    level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 TOKEN = sys.argv[1]
 
@@ -41,19 +43,42 @@ test = [
 
 def handle_question(update, context):
     # update.effective_chat.id,
-    most_similar = get_most_simmilar(update.message.text, test)
+    all_questions = get_all_questions()
+    most_similar, message_idx = get_most_simmilar(
+        update.message.text, 
+        [row.question for row in all_questions])
     if most_similar:
         context.bot.send_message(
-            chat_id=update.effective_chat.id, 
-            text=f'Похожий вопрос: {most_similar}')
+            chat_id=update.effective_chat.id,
+            text=f'Похожий вопрос уже задавался:') 
+            # text=f'Похожий вопрос уже задавался: {most_similar} {all_questions[message_idx].message_id}')
+        context.bot.forward_message(
+            chat_id=update.effective_chat.id,
+            from_chat_id=update.effective_chat.id,
+            message_id=all_questions[message_idx].message_id)
     else:
-        session = Session()
-        session.add(
-        Questions(question = update.message.text, embedding = '13124414'))
-        session.commit()
-        session.close()
+        add_new_question(update)
+
+def add_new_question(update):
+    session = Session()
+    session.add(
+    Questions(
+        question = update.message.text, 
+        message_id = update.message.message_id, 
+        embedding = '13124414'))
+    session.commit()
+    session.close()
+
+def get_all_questions():
+    session = Session()
+    questions = session.query(Questions).all()
+    logger.log(logging.DEBUG, questions)
+    session.close()
+    return questions
+
 
 if __name__ == '__main__':
     question_handler = MessageHandler(Filters.regex(r'\?'), handle_question)
     dispatcher.add_handler(question_handler)
     updater.start_polling()
+    updater.idle()

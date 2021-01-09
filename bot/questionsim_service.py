@@ -4,6 +4,7 @@ from nltk.tokenize import WordPunctTokenizer
 import re
 import nltk
 import string
+import logging
 # nltk.download('stopwords')
 from nltk.corpus import stopwords
 from sklearn.metrics.pairwise import cosine_similarity
@@ -12,8 +13,10 @@ from copy import deepcopy
 THRESHHOLD = 0.75
 
 tokenizer = WordPunctTokenizer()
-wv_embeddings = gensim.models.KeyedVectors.load('../notebooks/model.model')
+wv_embeddings = gensim.models.KeyedVectors.load('./notebooks/model.model')
 stopWords = set(stopwords.words('russian'))
+
+logger = logging.getLogger(__name__)
 
 def text_prepare(text):
     """
@@ -51,18 +54,24 @@ def question_to_vec(question, embeddings, dim=300):
         return result
 
 def get_most_simmilar(question, candidates):
+    logger.log(logging.DEBUG, candidates)
     candidates_embeddings = [
         question_to_vec(text_prepare(candidate), wv_embeddings, dim=300) 
         for candidate in candidates
     ]
+    if not len(candidates_embeddings):
+        return None, None
+    q2w = question_to_vec(text_prepare(question), wv_embeddings, dim=300)
+    if not len(q2w):
+        return None, None
     dist_s = cosine_similarity(
         candidates_embeddings, 
         np.array(
-            [question_to_vec(text_prepare(question), wv_embeddings, dim=300)]
+            [q2w]
         )
     )[:, 0]
-
     if dist_s.max() > THRESHHOLD: 
-        return candidates[dist_s.argmax()]
+        question_idx = dist_s.argmax()
+        return candidates[question_idx], question_idx
     else:
-        return None
+        return None, None
